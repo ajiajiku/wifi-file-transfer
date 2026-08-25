@@ -9,5 +9,6 @@
   <ItemGroup>
     <PackageReference Include="InTheHand.Net.Bluetooth" Version="4.2.4" />
     <PackageReference Include="InTheHand.Net.Obex" Version="4.1.0" />
+    <PackageReference Include="Theodicean.Makaretu.Dns.Multicast" Version="0.0.13" />
   </ItemGroup>
 </Project>
