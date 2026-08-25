@@ -1,5 +1,5 @@
+using InTheHand.Net;
 using InTheHand.Net.Bluetooth;
-using InTheHand.Net.Obex;
 using InTheHand.Net.Sockets;
 
 Console.WriteLine("WiFi File Transfer - Prototype 01");
@@ -38,8 +38,7 @@ Console.WriteLine($"Perangkat dipilih: {selected.DeviceName}");
 Console.WriteLine($"Alamat: {selected.DeviceAddress}");
 Console.WriteLine();
 
-Console.WriteLine("Versi library 32feet yang digunakan tidak menyediakan GetServiceRecords pada API Windows ini.");
-Console.WriteLine("Karena ObexWebRequest melakukan koneksi OPP sendiri, kita lanjutkan dengan uji kirim langsung.");
+Console.WriteLine("Uji OPP akan dilakukan dengan koneksi langsung.");
 Console.WriteLine();
 Console.Write("Masukkan path file uji kecil (contoh C:\\Temp\\test.txt): ");
 var localPath = Console.ReadLine()?.Trim().Trim('"');
@@ -63,7 +62,7 @@ try
     using var response = (ObexWebResponse)request.GetResponse();
 
     Console.WriteLine();
-    Console.WriteLine($"OPP selesai. Response code: {response.StatusCode} (0x{response.StatusCode:X2})");
+    Console.WriteLine($"OPP selesai. Response code: {response.StatusCode} (0x{(int)response.StatusCode:X2})");
     Console.WriteLine("Jika Android meminta Terima/Tolak, catat hasilnya untuk pengujian Prototype 01.");
 }
 catch (Exception ex)
