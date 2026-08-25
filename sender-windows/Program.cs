@@ -67,7 +67,7 @@ try
     var typeBytes = Encoding.ASCII.GetBytes("text/plain\0");
 
     using var packet = new MemoryStream();
-    packet.WriteByte(0x82); // PUT, final
+    packet.WriteByte(0x82);
     packet.WriteByte(0);
     packet.WriteByte(0);
 
@@ -116,7 +116,7 @@ static async Task<byte[]> ReadPacket(DataReader reader)
         throw new Exception("Panjang paket OBEX tidak valid.");
 
     var result = new byte[length];
-    Buffer.BlockCopy(header, 0, result, 0, 3);
+    System.Buffer.BlockCopy(header, 0, result, 0, 3);
 
     var remaining = (uint)(length - 3);
     if (remaining > 0)
@@ -124,7 +124,7 @@ static async Task<byte[]> ReadPacket(DataReader reader)
         await reader.LoadAsync(remaining);
         var tail = new byte[(int)remaining];
         reader.ReadBytes(tail);
-        Buffer.BlockCopy(tail, 0, result, 3, (int)remaining);
+        System.Buffer.BlockCopy(tail, 0, result, 3, (int)remaining);
     }
 
     return result;
