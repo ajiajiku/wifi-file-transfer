@@ -90,16 +90,19 @@ try
     var typeBytes = Encoding.ASCII.GetBytes("text/plain\0");
 
     using var packet = new MemoryStream();
-    packet.WriteByte(0x82); // PUT
+    packet.WriteByte(0x82); // PUT, final
     packet.WriteByte(0);
     packet.WriteByte(0);
 
     WriteU16Header(packet, 0x01, nameBytes); // Name
-    WriteU8Header(packet, 0x42, typeBytes);  // Type
+    WriteU16Header(packet, 0x42, typeBytes); // Type
     WriteU32Header(packet, 0xC3, (uint)data.Length); // Length
     WriteU16Header(packet, 0x49, data); // End Of Body
 
     var bytes = packet.ToArray();
+    if (bytes.Length > 65535)
+        throw new Exception("File uji terlalu besar untuk satu paket OPP.");
+
     var packetLength = (ushort)bytes.Length;
     bytes[1] = (byte)(packetLength >> 8);
     bytes[2] = (byte)packetLength;
@@ -130,41 +133,49 @@ static async Task Send(DataWriter writer, byte[] bytes)
 
 static async Task<byte[]> ReadPacket(DataReader reader)
 {
-    await reader.LoadAsync(3);
     var header = new byte[3];
-    reader.ReadBytes(header);
+    await ReadExact(reader, header);
 
     var length = (header[1] << 8) | header[2];
     if (length < 3 || length > 65535)
-        throw new Exception("Panjang paket OBEX tidak valid.");
+        throw new Exception($"Panjang paket OBEX tidak valid: {length}.");
 
     var result = new byte[length];
     System.Buffer.BlockCopy(header, 0, result, 0, 3);
 
-    var remaining = (uint)(length - 3);
+    var remaining = length - 3;
     if (remaining > 0)
     {
-        await reader.LoadAsync(remaining);
-        var tail = new byte[(int)remaining];
-        reader.ReadBytes(tail);
-        System.Buffer.BlockCopy(tail, 0, result, 3, (int)remaining);
+        var tail = new byte[remaining];
+        await ReadExact(reader, tail);
+        System.Buffer.BlockCopy(tail, 0, result, 3, remaining);
     }
 
     return result;
 }
 
+static async Task ReadExact(DataReader reader, byte[] buffer)
+{
+    var offset = 0;
+    while (offset < buffer.Length)
+    {
+        var loaded = await reader.LoadAsync((uint)(buffer.Length - offset));
+        if (loaded == 0)
+            throw new EndOfStreamException("Koneksi Bluetooth ditutup sebelum paket OBEX lengkap diterima.");
+
+        var chunk = new byte[(int)loaded];
+        reader.ReadBytes(chunk);
+        Buffer.BlockCopy(chunk, 0, buffer, offset, chunk.Length);
+        offset += chunk.Length;
+    }
+}
+
 static void WriteU16Header(Stream stream, byte id, byte[] value)
 {
     var length = value.Length + 3;
-    stream.WriteByte(id);
-    stream.WriteByte((byte)(length >> 8));
-    stream.WriteByte((byte)length);
-    stream.Write(value);
-}
+    if (length > 65535)
+        throw new Exception("Header OBEX terlalu besar.");
 
-static void WriteU8Header(Stream stream, byte id, byte[] value)
-{
-    var length = value.Length + 3;
     stream.WriteByte(id);
     stream.WriteByte((byte)(length >> 8));
     stream.WriteByte((byte)length);
