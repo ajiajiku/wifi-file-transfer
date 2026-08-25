@@ -49,11 +49,17 @@ if (string.IsNullOrWhiteSpace(localPath) || !File.Exists(localPath))
 var remoteName = Path.GetFileName(localPath);
 Console.WriteLine();
 Console.WriteLine($"Mengirim '{remoteName}' melalui Bluetooth OPP...");
-Console.WriteLine("Tunggu permintaan file di ROSY-2...");
+Console.WriteLine("Menunggu permintaan file di ROSY-2...");
 
 try
 {
-    var request = new ObexWebRequest(selected.DeviceAddress, remoteName);
+    // Gunakan URI OBEX eksplisit agar library memilih transport OPP Bluetooth.
+    var address = selected.DeviceAddress.ToString("N");
+    var uri = new Uri($"obex://{address}/{Uri.EscapeDataString(remoteName)}");
+    var request = new ObexWebRequest(uri)
+    {
+        Timeout = 15000
+    };
     request.ReadFile(localPath);
 
     using var response = (ObexWebResponse)request.GetResponse();
