@@ -40,13 +40,15 @@ public static class QuickSharePrototype
 
                 try
                 {
-                    var result = udp.Receive(ref _);
-                    foreach (var record in ParseRecords(result.Buffer))
+                    IPEndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+                    byte[] buffer = udp.Receive(ref remote);
+
+                    foreach (var record in ParseRecords(buffer))
                     {
                         if (record.Type == 12)
                         {
-                            if (found.Add(record.Name))
-                                Console.WriteLine($"[Ditemukan] {record.Name}");
+                            if (found.Add(record.Target))
+                                Console.WriteLine($"[Ditemukan] {record.Target}");
                         }
                         else if (record.Type == 33)
                         {
@@ -148,8 +150,8 @@ public static class QuickSharePrototype
             if (offset + 10 > data.Length) break;
 
             int type = U16(data, offset); offset += 2;
-            offset += 2; // class
-            offset += 4; // TTL
+            offset += 2;
+            offset += 4;
             int rdLength = U16(data, offset); offset += 2;
             if (offset + rdLength > data.Length) break;
 
