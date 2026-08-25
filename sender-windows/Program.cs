@@ -122,7 +122,7 @@ static async Task<byte[]> ReadPacket(DataReader reader)
     if (remaining > 0)
     {
         await reader.LoadAsync(remaining);
-        var tail = new byte[remaining];
+        var tail = new byte[(int)remaining];
         reader.ReadBytes(tail);
         Buffer.BlockCopy(tail, 0, result, 3, (int)remaining);
     }
