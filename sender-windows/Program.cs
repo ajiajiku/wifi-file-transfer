@@ -1,6 +1,7 @@
 using InTheHand.Net;
 using InTheHand.Net.Bluetooth;
 using InTheHand.Net.Sockets;
+using InTheHand.Net.Obex;
 
 Console.WriteLine("WiFi File Transfer - OPP Sender");
 Console.WriteLine();
@@ -53,10 +54,9 @@ Console.WriteLine("Menunggu permintaan file di ROSY-2...");
 
 try
 {
-    // Gunakan URI OBEX eksplisit agar library memilih transport OPP Bluetooth.
-    var address = selected.DeviceAddress.ToString("N");
-    var uri = new Uri($"obex://{address}/{Uri.EscapeDataString(remoteName)}");
-    var request = new ObexWebRequest(uri)
+    // Gunakan constructor BluetoothAddress langsung untuk OPP.
+    // Ini adalah pola resmi 32feet untuk Bluetooth OPP.
+    var request = new ObexWebRequest(selected.DeviceAddress, remoteName)
     {
         Timeout = 15000
     };
