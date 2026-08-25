@@ -1,4 +1,5 @@
 using System.Text;
+using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Devices.Enumeration;
 using Windows.Networking.Sockets;
@@ -7,21 +8,45 @@ using Windows.Storage.Streams;
 Console.WriteLine("WiFi File Transfer - Native Windows OPP");
 Console.WriteLine();
 
-Console.WriteLine("Mencari layanan Bluetooth OPP (0x1105)...");
-var services = await DeviceInformation.FindAllAsync(
-    RfcommDeviceService.GetDeviceSelector(RfcommServiceId.ObexObjectPush));
+const uint OPP = 0x1105;
 
-var targetInfo = services.FirstOrDefault(s =>
-    s.Name.Equals("ROSY-2", StringComparison.OrdinalIgnoreCase));
+Console.WriteLine("Mencari perangkat ROSY-2 yang sudah paired...");
+var devices = await DeviceInformation.FindAllAsync(
+    BluetoothDevice.GetDeviceSelectorFromPairingState(true));
 
-if (targetInfo == null)
+var deviceInfo = devices.FirstOrDefault(d =>
+    d.Name.Equals("ROSY-2", StringComparison.OrdinalIgnoreCase));
+
+if (deviceInfo == null)
 {
-    Console.WriteLine("Layanan OPP ROSY-2 tidak ditemukan.");
-    Console.WriteLine("Pastikan ROSY-2 sudah paired dan Bluetooth aktif.");
+    Console.WriteLine("ROSY-2 tidak ditemukan di perangkat paired.");
     return;
 }
 
-Console.WriteLine($"Target: {targetInfo.Name}");
+Console.WriteLine($"Target: {deviceInfo.Name}");
+
+using var device = await BluetoothDevice.FromIdAsync(deviceInfo.Id);
+if (device == null)
+{
+    Console.WriteLine("Gagal membuka perangkat Bluetooth ROSY-2.");
+    return;
+}
+
+Console.WriteLine("Mencari semua layanan RFCOMM ROSY-2 melalui SDP...");
+var result = await device.GetRfcommServicesAsync(BluetoothCacheMode.Uncached);
+
+var service = result.Services.FirstOrDefault(s =>
+    s.ServiceId.AsShortId() == OPP);
+
+if (service == null)
+{
+    Console.WriteLine("Layanan OPP (0x1105) ROSY-2 tidak ditemukan melalui SDP.");
+    Console.WriteLine("Tidak melakukan transfer.");
+    return;
+}
+
+Console.WriteLine($"OPP ditemukan: {service.ServiceId.AsString()}");
+
 Console.Write("Path file (contoh C:\\Users\\ajiaj\\Desktop\\test.txt): ");
 var localPath = Console.ReadLine()?.Trim().Trim('"');
 
@@ -33,11 +58,9 @@ if (string.IsNullOrWhiteSpace(localPath) || !File.Exists(localPath))
 
 try
 {
-    using var service = await RfcommDeviceService.FromIdAsync(targetInfo.Id)
-        ?? throw new Exception("Gagal membuka layanan OPP ROSY-2.");
-
     using var socket = new StreamSocket();
-    Console.WriteLine("Membuka koneksi OPP native Windows...");
+
+    Console.WriteLine("Membuka koneksi RFCOMM OPP...");
     await socket.ConnectAsync(
         service.ConnectionHostName,
         service.ConnectionServiceName,
@@ -67,21 +90,21 @@ try
     var typeBytes = Encoding.ASCII.GetBytes("text/plain\0");
 
     using var packet = new MemoryStream();
-    packet.WriteByte(0x82);
+    packet.WriteByte(0x82); // PUT
     packet.WriteByte(0);
     packet.WriteByte(0);
 
-    WriteU16Header(packet, 0x01, nameBytes);
-    WriteU8Header(packet, 0x42, typeBytes);
-    WriteU32Header(packet, 0xC3, (uint)data.Length);
-    WriteU16Header(packet, 0x49, data);
+    WriteU16Header(packet, 0x01, nameBytes); // Name
+    WriteU8Header(packet, 0x42, typeBytes);  // Type
+    WriteU32Header(packet, 0xC3, (uint)data.Length); // Length
+    WriteU16Header(packet, 0x49, data); // End Of Body
 
     var bytes = packet.ToArray();
     var packetLength = (ushort)bytes.Length;
     bytes[1] = (byte)(packetLength >> 8);
     bytes[2] = (byte)packetLength;
 
-    Console.WriteLine($"Mengirim '{fileName}' melalui OPP native Windows...");
+    Console.WriteLine($"Mengirim '{fileName}' melalui Bluetooth OPP...");
     Console.WriteLine("Perhatikan ROSY-2: seharusnya muncul permintaan file masuk.");
     await Send(writer, bytes);
 
